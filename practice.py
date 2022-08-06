@@ -5,7 +5,8 @@ from docx import Document
 from docx.document import Document as HintDocument
 from typing import Callable
 from loguru import logger
-from interfaces import UsurtDoc, XlsxData, UsurtBaseTable, XlsxDataParser, UnsetFieldsError
+from interfaces import UsurtDoc, XlsxData, UsurtBaseTable
+from xlsxparser import UnsetFieldsError, XlsxDataParser
 from docx.shared import Inches
 
 
@@ -25,7 +26,6 @@ class UsurtXlsxPracticeData(XlsxData):
 
     def __init__(self):
         self.orgs = []
-        self._orgs_key = 'Группа организаций. [Имя организации]. ФИО студентов. Группа, форма обучения'
         self.columns: dict[str, tuple[[Callable[[str], None]], int, int]] = {
             "Вид практики": (self._set_it('aim'), 1, 1),
             "Тип практики": (self._set_it('aim_kind'), 1, 1),
@@ -38,19 +38,9 @@ class UsurtXlsxPracticeData(XlsxData):
             "Период практики (дни)": (self._set_it('date_period'), 1, 1),
             "Должность руководителя практики": (self._set_it('director'), 1, 1),
             "ФИО руководителя практики": (self._set_it('director_name'), 1, 1)
+            'Группа организаций. [Имя организации]. ФИО студентов. Группа, форма обучения':
+                (self._set_in_list(self.orgs), None, 2)
         }
-
-    def get_setter(self, xlsx_field: str) -> tuple[[Callable[[str], None]], int | None, int] | None:
-        try:
-            if xlsx_field == self._orgs_key:
-                # поля организация
-                return self._set_in_list(self.orgs), None, 2
-            return self.columns.pop(xlsx_field)
-        except KeyError:
-            return
-
-    def get_unset_fields(self) -> tuple[str]:
-        return tuple(self.columns)
 
 
 class UsurtPracticeDoc(UsurtDoc):

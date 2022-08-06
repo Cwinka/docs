@@ -1,91 +1,34 @@
-from pathlib import Path
-from typing import Generator, Callable, TypeVar, Type
-import pymorphy2
-from loguru import logger
-import re
-import openpyxl
+from typing import Callable
 from docx.document import Document as HintDocument
 from docx.table import _Cell
-from docx.text.paragraph import Run, Paragraph
 from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 from docx.shared import Inches
+from docparser import DocxEnumTag
 
 
-class UsurtDoc:
-
-    _morf = pymorphy2.MorphAnalyzer(lang='ru')
-
-    def intro(self) -> Generator[str, any, None]:
-        """ Содержит итератор по строкам титутульного листа документа. """
-        raise NotImplementedError
-
-    def order(self) -> Generator[str, any, None]:
-        """ Содержит итератор по строкам приказа документа. """
-        raise NotImplementedError
-
-    def ending(self) -> Generator[str, any, None]:
-        """ Содержит итератор по строкам которые заканчивают документ. """
-        raise NotImplementedError
-
-    def make_table(self, doc: 'HintDocument') -> 'UsurtBaseTable':
-        """ Создаёт таблицу с заголовками в документе. """
-        raise NotImplementedError
-
-    def make_all_tables(self, doc: 'HintDocument'):
-        """ Создает все необходимые таблицы в документе. """
-
-    def _morf_to(self, text: str, target: str) -> str:
+class Field:
+    def __init__(self, columns: int, owner: DocxEnumTag, rows: int = None):
         """
-        Приводит текст в нужный падеж.
-
-        :param text: текст для постановки в нужный падеж.
-        :param target: граммема.
-        :return:
+        :param rows: Колличество строк занимаемое значением.
+        :param columns: Колличество колонок занимаемое значением.
+        :param owner: Тэг владелец значения.
         """
-        proper = ''
-        for cleared, orig in self._splitter(text):
-            inf = self._inflect(cleared, target)
-            if inf.lower() == cleared.lower():
-                inf = cleared
-            proper += re.sub(cleared, inf, orig) + ' '
-        return proper
+        self.value = None
+        self.rows = rows
+        self.columns = columns
+        self.owner = owner
 
-    @staticmethod
-    def _splitter(text: str) -> tuple[str, str]:
-        """
-        Разделяет текст на слова.
+    def __call__(self, value: str):
+        self.value = value
 
-        :param text: текст для разделения на слова.
-        :return: очищенное слово без знаков, оригинальное слово.
-        """
-        for part in text.split(' '):
-            if not part:
-                continue
-            yield part.strip('()'), part
 
-    def _inflect(self, word: str, target: str) -> str:
-        """
-        Приводит слово в нужный падеж.
-        Метод не обрабатыет слова, написанные в верхнем регистре.
-        Метод не обрабатыет слова, длиной меньше 3 символов.
-
-        :param word: слово.
-        :param target: граммема.
-        :return: слово поставленное в указаннай падеж.
-        """
-        if word.isupper() or len(word) < 3:
-            return word
-        m = self._morf.parse(word)[0]
-        inf = m.inflect({target})
-        if inf is None:
-            logger.warning(f'Не удалось привести слово "{word}" к таргету "{target}".')
-            return word
-        return inf.word
+class UnsetFieldError(Exception):
+    pass
 
 
 class XlsxData:
 
-    def get_setter(self, xlsx_field: str) -> tuple[[Callable[[str], None]], int, int] | None:
+    def get_field(self, xlsx_field: str) -> Field | None:
         """
         Возвращает функцию установки значения поля xlsx_field в аргумент класса.
 
@@ -95,7 +38,7 @@ class XlsxData:
         """
         raise NotImplementedError
 
-    def get_unset_fields(self) -> tuple[str]:
+    def get_unset_fields(self) -> tuple[tuple[str, Field]]:
         """
         Возвращает не установленные поля данных. Неустановленные поля являются причиной
         завершения программы.
@@ -167,111 +110,3 @@ class UsurtBaseTable:
             for y, (c1, c2) in enumerate(zip(*(self.table.row_cells(i) for i in row_ids))):
                 if y in cells:
                     c1.merge(c2)
-
-
-class UnsetFieldsError(Exception):
-    def __init__(self, m: str):
-        super().__init__(m)
-        self.err = m
-
-
-class XlsxDataParser:
-
-    _XlsxData = TypeVar('_XlsxData')
-
-    @classmethod
-    def parse(cls, path: Path, data_cls: Type[_XlsxData]) -> _XlsxData:
-        """
-        Парсит данные из xlsx файла path.
-
-        :param path: путь до файла xlsx.
-        :param data_cls: тип класса XlsxData.
-        :return:
-        """
-        wb_obj = openpyxl.load_workbook(path)
-        sheet = wb_obj.active
-        data = data_cls()
-        rows = sheet.iter_rows(values_only=Type)
-        for row in rows:
-            cls._set_xlsx_value_to_data(row, rows, data)
-
-        unset = data.get_unset_fields()
-        if unset:
-            err = "\n".join(unset)
-            raise UnsetFieldsError(f'Недостаточно данных для формирования docx документа, '
-                                   f'следующие поля xlsx документа {path.as_posix()} должны быть устанвлены: \n{err}')
-
-        return data
-
-    @classmethod
-    def _set_xlsx_value_to_data(cls, row, rows, data: '_XlsxData'):
-        """
-        Устанавливает значение поля из xlsx в соответсвующее поле структуры data.
-
-        :param row: текущий ряд.
-        :param rows: генератор всех рядов.
-        :param data: структура данных.
-        :return:
-        """
-        s = cls._get_setter(row, data)
-        if s:
-            setter, _rows, _cols = s
-            if _rows and _rows == 1:
-                value = cls._extract_from_row(row, 1)
-            else:
-                value, row = cls._multi_line_values(rows, row, _rows, _cols)
-                if row:
-                    cls._set_xlsx_value_to_data(row, rows, data)
-            setter(value)
-
-    @staticmethod
-    def _get_setter(row, data: '_XlsxData') -> tuple[Callable, int, int] | None:
-        """
-        Возвращает результат метода XlsxData.get_setter.
-
-        :param row: текущий ряд.
-        :param data: структура данных.
-        :return:
-        """
-        xlsx_field: str = row[0]
-        if xlsx_field:
-            line_field = xlsx_field.strip().replace('\n', ' ')
-            if not line_field.startswith('#'):
-                # # обозначает коментарий
-                s = data.get_setter(line_field)
-                if s:
-                    return s
-
-    @classmethod
-    def _multi_line_values(cls, rows_gen, current_row, rows: int | None, cols: int):
-        """
-        Извлекает многостроковое значение из xlsx.
-
-        :param rows_gen: генератор рядов
-        :param current_row: текущий ряд
-        :param rows: колличество рядов соответсвующих значений
-        :param cols: колличество колонок соответсвующих значений
-        :return:
-        """
-        values = [cls._extract_from_row(current_row, cols)]
-        last_row = None
-        if rows:
-            rows -= 1  # так как current_row уже добавлен
-            for row in rows_gen:
-                if rows == 0:
-                    last_row = row
-                    break
-                values.append(cls._extract_from_row(row, cols))
-                rows -= 1
-        else:
-            for row in rows_gen:
-                if any(row) and row[0] is None:  # первое поле (A) для ключей
-                    values.append(cls._extract_from_row(row, cols))
-                else:
-                    last_row = row
-                    break
-        return values, last_row
-
-    @staticmethod
-    def _extract_from_row(row, cols: int):
-        return row[1] if cols == 1 else row[1:cols+1]
