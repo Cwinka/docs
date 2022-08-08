@@ -40,10 +40,9 @@ class XlsxData:
 
     def get_unset_fields(self) -> tuple[tuple[str, Field]]:
         """
-        Возвращает не установленные поля данных. Неустановленные поля являются причиной
-        завершения программы.
+        Возвращает не установленные поля данных.
 
-        :return:
+        :return: название поля, поле
         """
         raise NotImplementedError
 

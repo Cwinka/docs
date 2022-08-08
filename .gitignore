@@ -3,3 +3,4 @@ venv/
 *.7z
 *.tmp
 ~*
+__pycache__/
