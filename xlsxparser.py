@@ -16,7 +16,10 @@ class XlsxDataParser:
     def __init__(self, path: Path):
         if path.suffix not in ('.xlsx', 'xls'):
             raise XlsxDataParserError(f'Неподходящий формат документа {path}. Необходим документ в формате xls/xlsx.')
-        wb_obj = openpyxl.load_workbook(path)
+        try:
+            wb_obj = openpyxl.load_workbook(path)
+        except OSError:
+            raise XlsxDataParserError(f'Документ {path} не является xls/xlsx документом.')
         self.sheet = wb_obj.active
 
     def parse(self, keeper: Type[XlsxData]) -> XlsxData:

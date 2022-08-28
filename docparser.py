@@ -68,8 +68,10 @@ class UnknownDueDate(Exception):
     """ Неизвестный падеж. """
     pass
 
+
 class TaggedDocError(Exception):
     pass
+
 
 class TaggedDoc:
     def __init__(self, path: Path, init: bool = False):
@@ -78,6 +80,8 @@ class TaggedDoc:
             self._d: HintDocument = Document(path)  # Объект библиотеки python-docx.
         except ValueError:
             raise TaggedDocError(f'Неподходящий формат документа {path}. Необходим документ в формате docx.')
+        except OSError:
+            raise TaggedDocError(f'Документ {path} не является docx документом.')
         self.width: Length = self._d._block_width  # Ширина документа в относительных единицах.
         # Маппинг найденных enum тэгов на структуры тэгов, хранящие
         # дополнительную информацию об использовании тэга.
