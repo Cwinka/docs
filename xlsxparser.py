@@ -4,12 +4,18 @@ from interfaces import Field, XlsxData
 import openpyxl
 
 
+class XlsxDataParserError(Exception):
+    pass
+
+
 class XlsxDataParser:
     """
     Парсер данных xlsx документа.
     """
 
     def __init__(self, path: Path):
+        if path.suffix not in ('.xlsx', 'xls'):
+            raise XlsxDataParserError(f'Неподходящий формат документа {path}. Необходим документ в формате xls/xlsx.')
         wb_obj = openpyxl.load_workbook(path)
         self.sheet = wb_obj.active
 

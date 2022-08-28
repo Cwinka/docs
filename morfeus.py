@@ -7,7 +7,7 @@ from loguru import logger
 _morf = pymorphy2.MorphAnalyzer(lang='ru')
 
 
-def morf(text: str, due_date: str | None) -> str:
+def morf(text: str, due_date: str | None, s='') -> str:
     """
     Изменяет текст в нужный падеж.
 
@@ -15,14 +15,15 @@ def morf(text: str, due_date: str | None) -> str:
     :param due_date: граммема (падеж).
     :return:
     """
-    if due_date is None:
+    if due_date is None:  # без указания падежа текст не изменяется
         return text
-    proper = ''
-    for cleared, orig in _splitter(text):
-        inf = _inflect(cleared, due_date)
+    proper = s
+    for cleared, original in _splitter(text):
+        inf = _inflect(cleared, due_date)  # изменение падежа
+        # изменение падежа убирает регистр, если слово не изменилось, следует восстановить регистр
         if inf.lower() == cleared.lower():
             inf = cleared
-        proper += re.sub(cleared, inf, orig) + ' '
+        proper += re.sub(cleared, inf, original) + ' '  # добавление слова к предложению
     return proper
 
 

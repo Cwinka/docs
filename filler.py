@@ -2,19 +2,20 @@ import argparse
 import sys
 from pathlib import Path
 
-from docx.document import Document as HintDocument
 from docx.shared import Inches
 from docx.text.paragraph import Paragraph
-from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 from loguru import logger
 
-from docparser import TaggedDoc, DocxEnumTag, UnknownDueDate
-from interfaces import XlsxData, LineField, UnsetFieldError, MultiField, UsurtBaseTable, Field
-from xlsxparser import XlsxDataParser
+from docparser import TaggedDoc, DocxEnumTag, UnknownDueDate, TaggedDocError
+from interfaces import XlsxData, LineField, UnsetFieldError, MultiField, Field
+from table import DocxTable
+from xlsxparser import XlsxDataParser, XlsxDataParserError
 
 
 class UsurtData(XlsxData):
-
+    """
+    Данные xlsx документа, которые можно ввести.
+    """
     def __init__(self):
         self.columns: dict[str, LineField] = {
             "Вид практики": LineField(1, DocxEnumTag.KIND),
@@ -50,9 +51,10 @@ class UsurtData(XlsxData):
 
 
 def check_filled(data: XlsxData, doc: TaggedDoc):
+    """ Проверяет, все ли необходимые данные заполнены в xlsx. """
     if unset := data.get_unset_fields():
-        unset_tags = tuple(field[1].owner for field in unset)
-        used_tags = doc.get_used_tags()
+        unset_tags = tuple(field[1].owner for field in unset)  # распаковка только enum тэгов.
+        used_tags = doc.get_used_tags()  # получение использованных enum тегов в шаблоне docx.
         for tag in used_tags:
             if tag in unset_tags:
                 err = "\n".join(field[0] for field in unset)
@@ -61,46 +63,59 @@ def check_filled(data: XlsxData, doc: TaggedDoc):
 
 
 def fill_tables(doc: TaggedDoc, tag: DocxEnumTag, xl_data: XlsxData):
+    """
+    Заполняет все таблицы данными и вставляет в документ.
+
+    :param doc: документ.
+    :param tag: имя тэга с которого начать вставлять таблицы.
+    :param xl_data: хранилище данных.
+    :return:
+    """
     def _new_p(after: Paragraph):
-        # new_p = OxmlElement("w:p")
+        """  Создание нового параграфа сразу поле предыдущего. """
         new_p = doc._d.add_paragraph()
         after._p.addnext(new_p._p)
         return new_p
 
-    paragraphs = doc._found_p[tag]
-    director = xl_data.get(DocxEnumTag.DIRECTOR).value
-    director_name = xl_data.get(DocxEnumTag.DIRECTOR_NAME).value
-    group = xl_data.get(DocxEnumTag.GROUP).value
+    def _add_student(_name: str, _budget: str):
+        nonlocal n_students
+        table.add_row(f'{n_students}. {_name}', f'{group}, {_budget}', director, director_name)
+        n_students += 1
 
-    found = paragraphs.pop()
-    p = _new_p(found)
-    found._element.getparent().remove(found._p)
+    table_paragraph = doc._hit_paragraphs[tag].pop()  # параграф, в котором найден тэг таблицы.
+    paragraph = _new_p(table_paragraph)  # вставка нового неформатированного параграфа.
+    table_paragraph._element.getparent().remove(table_paragraph._p)  # удаление параграфа с тэгом.
 
-    # print()
-    # paragraph_styles = [s for s in doc._d.styles if s.type == WD_STYLE_TYPE.RUNS]
-    # print(paragraph_styles)
+    director = xl_data.get(DocxEnumTag.DIRECTOR).value  # должность преподователя
+    director_name = xl_data.get(DocxEnumTag.DIRECTOR_NAME).value  # фио преподователя
+    group = xl_data.get(DocxEnumTag.GROUP).value  # номер группы студентов.
 
-    students = 1
-    for part in xl_data.get(DocxEnumTag.TABLES).value:
-        t = UsurtBaseTable(p, width=doc.width, columns_width=(Inches(5),))
-        t.make_base_headings()
+    n_students = 1  # нумерация студентов.
+    n_org = 1  # нумерация органицаций.
+    for table_data in xl_data.get(DocxEnumTag.TABLES).value:  # для каждой группы данных таблицы.
+        table = DocxTable(paragraph, width=doc.width, columns_width=(Inches(5),))  # создание экземпляра таблицы
+        table.make_base_headings()  # создание шапки.
 
-        org_common_name, _ = part[0]
+        name, _ = table_data[0]
         if _ is None:
-            p.add_run(f'{org_common_name}\n')
-            p.style = 'Heading 4'
+            paragraph.add_run(f'{n_org}. {name}\n')
+            paragraph.style = 'Heading 4'
+        else:
+            _add_student(table_data[0][0], table_data[0][1])  # имя организации опущено, первый кортеж - студент
 
-        for line in part[1:]:
-            name, budget = line
-            student_name = name.strip()
-            if budget and all(filter(lambda x: x[0].isupper(), student_name.split(' '))):
-                t.add_row(f'{students}. {name}', f'{group}, {budget}', director, director_name)
-                students += 1
+        n_sub_org = 1  # нумерация филиалов органицаций.
+        for line in table_data[1:]:  # для каждой строки
+            name = line[0]
+            budget = line[1]
+            if budget and all(filter(lambda x: x[0].isupper(), name.strip().split(' '))):  # встретилось имя студента
+                _add_student(name, budget)
             else:
-                r = t.add_row(name, p_style='Heading 6')
-                t.merge((r,), cells=(0, t.cols-1))
-        p = _new_p(p)
-        t.apply()
+                r = table.add_row(f'{n_org}.{n_sub_org}. {name}', p_style='Heading 6')  # встретилось имя филиала
+                n_sub_org += 1
+                table.merge((r,), cells=(0, table.cols-1))
+        n_org += 1
+        paragraph = _new_p(paragraph)
+        table.apply()
 
 
 def main():
@@ -115,12 +130,11 @@ def main():
     docx_path = Path(args.docx)
     out = Path(args.o) if args.o else Path(f'{docx_path.stem}-prepared.docx')
 
-    xl_data = XlsxDataParser(xlsx_path).parse(UsurtData)
-    doc = TaggedDoc(docx_path, init=True)
-
     try:
+        xl_data = XlsxDataParser(xlsx_path).parse(UsurtData)
+        doc = TaggedDoc(docx_path, init=True)
         check_filled(xl_data, doc)
-    except UnsetFieldError as e:
+    except (XlsxDataParserError, TaggedDocError, UnsetFieldError) as e:
         logger.error(e)
         exit(1)
 

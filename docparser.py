@@ -1,15 +1,20 @@
 import re
-from pathlib import Path
-from enum import Enum
-from morfeus import morf
-from docx.document import Document as HintDocument
-from docx.text.paragraph import Paragraph
-from docx import Document
-from docx.shared import Length
 from collections import defaultdict
+from enum import Enum
+from pathlib import Path
+
+from docx import Document
+from docx.document import Document as HintDocument
+from docx.shared import Length
+from docx.text.paragraph import Paragraph
+
+from morfeus import morf
 
 
 class DocxEnumTag(Enum):
+    """
+    Список доступных тэгов для использования в шаблоне docx
+    """
     KIND = 'KIND'
     AIM = 'AIM'
     GRADE = 'GRADE'
@@ -27,6 +32,10 @@ class DocxEnumTag(Enum):
 
 
 class _DocxTag:
+    """
+    Сложный тэг в шаблоне docx, хранит информацию о enum и падеже, в который необходимо
+    поставить предложение перед заменой.
+    """
 
     def __init__(self, enum: DocxEnumTag, due: str = None):
         self.enum = enum
@@ -55,30 +64,37 @@ class _DocxTag:
         return cls(e, due=tag.group('due'))
 
 
-class DocsReplaceContent:
-
-    def replace(self, docx: HintDocument):
-        """
-        Метод вызывается когда тэг заменяется на содержимое данного класса.
-        Метод должен расположить необходимое содержимое в документе.
-        """
-        pass
-
-
 class UnknownDueDate(Exception):
     """ Неизвестный падеж. """
     pass
 
+class TaggedDocError(Exception):
+    pass
 
 class TaggedDoc:
     def __init__(self, path: Path, init: bool = False):
-        self._path = path
-        self._d: HintDocument = Document(path)
-        self.width: Length = self._d._block_width
+        self._path = path  # Путь до шаблона docx.
+        try:
+            self._d: HintDocument = Document(path)  # Объект библиотеки python-docx.
+        except ValueError:
+            raise TaggedDocError(f'Неподходящий формат документа {path}. Необходим документ в формате docx.')
+        self.width: Length = self._d._block_width  # Ширина документа в относительных единицах.
+        # Маппинг найденных enum тэгов на структуры тэгов, хранящие
+        # дополнительную информацию об использовании тэга.
         self._found_tags: dict[DocxEnumTag, list[_DocxTag]] = defaultdict(list)
-        self._found_p: dict[DocxEnumTag: set[Paragraph]] = defaultdict(set)
+        #  Маппинг найденных enum тегов на список параграфов, в которых встречаются найденные тэги.
+        self._hit_paragraphs: dict[DocxEnumTag: set[Paragraph]] = defaultdict(set)
         if init:
             self._parse()
+
+    def _parse(self):
+        search_pattern = _DocxTag.global_re()  # Регулярное выражения для поиска тэгов.
+        for p in self._d.paragraphs:
+            if found := re.finditer(search_pattern, p.text):
+                for tag in found:
+                    t = _DocxTag.from_re(tag)  # Создание экземпляра сложного тэга из строки.
+                    self._hit_paragraphs[t.enum].add(p)  # Сопоставление enum и параграфа где найден тэг.
+                    self._found_tags[t.enum].append(t)  # Сопоставление enum и со сложным тэгом.
 
     def save(self, path: Path):
         self._d.save(path)
@@ -92,18 +108,14 @@ class TaggedDoc:
 
     def replace_tag(self, tag: DocxEnumTag, content: str):
         """ Заменяет все tag внутри документа на content (в соответсвующем падеже) """
-        par = self._found_p[tag]
-        tags = self._found_tags[tag]
-        for p in par:
-            for t in tags:
+        paragraphs = self._hit_paragraphs[tag]
+        for p in paragraphs:
+            for t in self._found_tags[tag]:
                 try:
-                    due_text = morf(str(content), t.due).strip()
+                    due_content = morf(str(content), t.due).strip()  # приведение content в нужный падеж
                 except ValueError:
                     raise UnknownDueDate(f'Неизвестный падеж в тэге "{t.name}": "{t.due}".')
-                self._replace_text(p, t.replace_re(), due_text)
-
-    def replace_tag_with_table(self, tag: DocxEnumTag, table):
-        pass
+                self._replace_text(p, t.replace_re(), due_content)  # замена тэга на content
 
     @staticmethod
     def _replace_text(paragraph: Paragraph, regex: str, replace_str: str):
@@ -112,8 +124,8 @@ class TaggedDoc:
             match = re.search(regex, paragraph.text)
             if not match:
                 break
-            runs = iter(paragraph.runs)
-            start, end = match.start(), match.end()
+            runs = iter(paragraph.runs)  # итератор по блокам параграфа
+            start, end = match.start(), match.end()  # начало и конец совпадения регулярного выражения
             for run in runs:
                 run_len = len(run.text)
                 if start < run_len:
@@ -128,17 +140,3 @@ class TaggedDoc:
                 run_text = run.text
                 run.text = run_text[end:]
                 end -= len(run_text)
-
-            # for run in paragraph.runs:
-            #     if run.text == "":
-            #         r = run._r
-            #         r.getparent().remove(r)
-
-    def _parse(self):
-        search_pattern = _DocxTag.global_re()
-        for p in self._d.paragraphs:
-            if found := re.finditer(search_pattern, p.text):
-                for tag in found:
-                    t = _DocxTag.from_re(tag)
-                    self._found_p[t.enum].add(p)
-                    self._found_tags[t.enum].append(t)
