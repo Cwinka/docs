@@ -65,7 +65,7 @@ class XlsxDataParser:
         :return:
         """
         if key:
-            line_field = key.strip().replace('\n', ' ')
+            line_field = key.strip(" \"'").replace('\n', ' ')
             if not line_field.startswith('#'):  # # обозначает коментарий
                 return keeper.get_field(line_field)
 

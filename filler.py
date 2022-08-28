@@ -5,7 +5,7 @@ from pathlib import Path
 from docx.shared import Inches
 from docx.text.paragraph import Paragraph
 from loguru import logger
-
+from typing import Iterator
 from docparser import TaggedDoc, DocxEnumTag, UnknownDueDate, TaggedDocError
 from interfaces import XlsxData, LineField, UnsetFieldError, MultiField, Field
 from table import DocxTable
@@ -17,7 +17,7 @@ class UsurtData(XlsxData):
     Данные xlsx документа, которые можно ввести.
     """
     def __init__(self):
-        self.columns: dict[str, LineField] = {
+        self.columns: dict[str, Field] = {
             "Вид практики": LineField(1, DocxEnumTag.KIND),
             "Тип практики": LineField(1, DocxEnumTag.AIM),
             "Курс": LineField(1, DocxEnumTag.GRADE),
@@ -37,7 +37,10 @@ class UsurtData(XlsxData):
     def __iter__(self):
         return iter(self.columns.values())
 
-    def get_field(self, xlsx_field: str) -> LineField | None:
+    def help_iter(self) -> Iterator[tuple[str, Field]]:
+        return iter(self.columns.items())
+
+    def get_field(self, xlsx_field: str) -> Field | None:
         return self.columns.get(xlsx_field)
 
     def get(self, tag: DocxEnumTag) -> Field | None:
@@ -45,7 +48,7 @@ class UsurtData(XlsxData):
             if f.owner == tag:
                 return f
 
-    def get_unset_fields(self) -> tuple[tuple[str, LineField]]:
+    def get_unset_fields(self) -> tuple[tuple[str, Field]]:
         """ Возвращает кортэж из каноничного имени поля и самого поля. """
         return tuple((s, field) for s, field in self.columns.items() if field.value is None)
 
@@ -125,7 +128,14 @@ def main():
     parser.add_argument('docx', type=str, help='путь до шаблона docx документа.')
     parser.add_argument('xlsx', type=str, help='путь до xlsx документа с данными.')
     parser.add_argument('-o', '-out', type=str, help='путь до нового doc документа.')
+    parser.add_argument('-lt', '-list-tags', action='store_true', help='отобразить список доступных тэгов.')
+
     args = parser.parse_args()
+    if args.lt:
+        for canon, field in UsurtData().help_iter():
+            print(f'Xlsx поле: "{canon}", тэг docx: "<{field.owner.value}>"')
+        exit(0)
+
     xlsx_path = Path(args.xlsx)
     docx_path = Path(args.docx)
     out = Path(args.o) if args.o else Path(f'{docx_path.stem}-prepared.docx')

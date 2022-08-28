@@ -1,4 +1,5 @@
 from docparser import DocxEnumTag
+from typing import Iterator
 
 
 class Field:
@@ -77,6 +78,10 @@ class XlsxData:
 
     def get(self, tag: DocxEnumTag) -> Field | None:
         """ Возвращает поле, соответствующую тэгу tag. """
+        raise NotImplementedError
+
+    def help_iter(self) -> Iterator[tuple[str, Field]]:
+        """ Итератор, возвращающий кононичное название поля и само поле"""
         raise NotImplementedError
 
     def __iter__(self):
