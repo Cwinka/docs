@@ -68,7 +68,7 @@ class UnknownDueDate(Exception):
     pass
 
 
-class DocxWithTags:
+class TaggedDoc:
     def __init__(self, path: Path, init: bool = False):
         self._path = path
         self._d: HintDocument = Document(path)

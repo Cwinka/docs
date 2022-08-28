@@ -5,38 +5,38 @@ from pathlib import Path
 from docx.document import Document as HintDocument
 from loguru import logger
 
-from docparser import DocxWithTags, DocxEnumTag, UnknownDueDate
-from interfaces import XlsxData, Field, UnsetFieldError
+from docparser import TaggedDoc, DocxEnumTag, UnknownDueDate
+from interfaces import XlsxData, LineField, UnsetFieldError, MultiField
 from xlsxparser import XlsxDataParser
 
 
 class UsurtXlsxTrainingData(XlsxData):
 
     def __init__(self):
-        self.columns: dict[str, Field] = {
-            "Вид практики": Field(1, DocxEnumTag.KIND, rows=1),
-            "Тип практики": Field(1, DocxEnumTag.AIM, rows=1),
-            "Курс": Field(1, DocxEnumTag.GRADE, rows=1),
-            "Факультет": Field(1, DocxEnumTag.FACULTY, rows=1),
-            "Группа": Field(1, DocxEnumTag.GROUP, rows=1),
-            "Форма обучения": Field(1, DocxEnumTag.STUDY_TYPE, rows=1),
-            "Специализация": Field(1, DocxEnumTag.SPECIALIZATION, rows=1),
-            "Период практики (годы)": Field(1, DocxEnumTag.PERIOD_YEARS, rows=1),
-            "Период практики (дни)": Field(1, DocxEnumTag.PERIOD_DATE, rows=1),
-            "Кафедра": Field(1, DocxEnumTag.PULPIT, rows=1),
-            "Должность руководителя практики": Field(1, DocxEnumTag.DIRECTOR, rows=1),
-            "ФИО руководителя практики": Field(1, DocxEnumTag.DIRECTOR_NAME, rows=1),
-            "ФИО студентов. Группа, форма обучения": Field(1, DocxEnumTag.TRAINING_TABLE),
+        self.columns: dict[str, LineField] = {
+            "Вид практики": LineField(1, DocxEnumTag.KIND),
+            "Тип практики": LineField(1, DocxEnumTag.AIM),
+            "Курс": LineField(1, DocxEnumTag.GRADE),
+            "Факультет": LineField(1, DocxEnumTag.FACULTY),
+            "Группа": LineField(1, DocxEnumTag.GROUP),
+            "Форма обучения": LineField(1, DocxEnumTag.STUDY_TYPE),
+            "Специализация": LineField(1, DocxEnumTag.SPECIALIZATION),
+            "Период практики (годы)": LineField(1, DocxEnumTag.PERIOD_YEARS),
+            "Период практики (дни)": LineField(1, DocxEnumTag.PERIOD_DATE),
+            "Кафедра": LineField(1, DocxEnumTag.PULPIT),
+            "Должность руководителя практики": LineField(1, DocxEnumTag.DIRECTOR),
+            "ФИО руководителя практики": LineField(1, DocxEnumTag.DIRECTOR_NAME),
+            "ФИО студентов. Группа, форма обучения": MultiField(1, DocxEnumTag.TRAINING_TABLE),
         }
 
     def __iter__(self):
         return iter(self.columns.values())
 
-    def get_field(self, xlsx_field: str) -> Field | None:
+    def get_field(self, xlsx_field: str) -> LineField | None:
         """ Возвращает поле, соответствующее значению xlsx_field. """
         return self.columns.get(xlsx_field)
 
-    def get_unset_fields(self) -> tuple[tuple[str, Field]]:
+    def get_unset_fields(self) -> tuple[tuple[str, LineField]]:
         return tuple((s, field) for s, field in self.columns.items() if field.value is None)
 
 
@@ -63,7 +63,7 @@ class UsurtXlsxTrainingData(XlsxData):
 #             students.add_row(name, group, director, director_name)
 
 
-def check_filled(data: XlsxData, doc: DocxWithTags):
+def check_filled(data: XlsxData, doc: TaggedDoc):
     if unset := data.get_unset_fields():
         unset_tags = tuple(field[1].owner for field in unset)
         used_tags = doc.get_used_tags()
@@ -86,16 +86,16 @@ def main():
     docx_path = Path(args.docx)
     out = Path(args.o) if args.o else Path(f'{docx_path.stem}-prepared.docx')
 
-    data = XlsxDataParser.parse(xlsx_path, UsurtXlsxTrainingData)
-    doc = DocxWithTags(docx_path, init=True)
+    xl_data = XlsxDataParser(xlsx_path).parse(UsurtXlsxTrainingData)
+    doc = TaggedDoc(docx_path, init=True)
 
     try:
-        check_filled(data, doc)
+        check_filled(xl_data, doc)
     except UnsetFieldError as e:
         logger.error(e)
         exit(1)
 
-    for field in data:
+    for field in xl_data:
         try:
             doc.replace_tag(field.owner, field.value)
         except UnknownDueDate as e:
