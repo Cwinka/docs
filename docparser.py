@@ -5,6 +5,7 @@ from morfeus import morf
 from docx.document import Document as HintDocument
 from docx.text.paragraph import Paragraph
 from docx import Document
+from docx.shared import Length
 from collections import defaultdict
 
 
@@ -22,7 +23,7 @@ class DocxEnumTag(Enum):
     DIRECTOR = 'DIRECTOR'
     DIRECTOR_NAME = 'DIRECTOR_NAME'
     STUDENTS = 'STUDENTS'
-    TRAINING_TABLE = 'TRAINING_TABLE'
+    TABLES = 'TABLES'
 
 
 class _DocxTag:
@@ -65,6 +66,7 @@ class DocsReplaceContent:
 
 
 class UnknownDueDate(Exception):
+    """ Неизвестный падеж. """
     pass
 
 
@@ -72,6 +74,7 @@ class TaggedDoc:
     def __init__(self, path: Path, init: bool = False):
         self._path = path
         self._d: HintDocument = Document(path)
+        self.width: Length = self._d._block_width
         self._found_tags: dict[DocxEnumTag, list[_DocxTag]] = defaultdict(list)
         self._found_p: dict[DocxEnumTag: set[Paragraph]] = defaultdict(set)
         if init:
@@ -98,6 +101,9 @@ class TaggedDoc:
                 except ValueError:
                     raise UnknownDueDate(f'Неизвестный падеж в тэге "{t.name}": "{t.due}".')
                 self._replace_text(p, t.replace_re(), due_text)
+
+    def replace_tag_with_table(self, tag: DocxEnumTag, table):
+        pass
 
     @staticmethod
     def _replace_text(paragraph: Paragraph, regex: str, replace_str: str):

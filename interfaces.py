@@ -1,9 +1,11 @@
 from typing import Callable
 from docx.document import Document as HintDocument
-from docx.table import _Cell
+from docx.text.paragraph import Paragraph
+from docx.table import _Cell, Table
 from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
-from docx.shared import Inches
+from docx.shared import Inches, Length
 from docparser import DocxEnumTag
+from docx.oxml import CT_Tbl
 
 
 class Field:
@@ -39,9 +41,10 @@ class MultiField:
         self.rows = rows
         self.columns = columns
         self.owner = owner
+        self.value: list[list[str]] = []
 
-    def __call__(self, value: str):
-        self.value = value
+    def __call__(self, value: list[str]):
+        self.value.append(value)
 
 
 class UnsetFieldError(Exception):
@@ -50,22 +53,25 @@ class UnsetFieldError(Exception):
 
 class XlsxData:
 
-    def get_field(self, xlsx_field: str) -> LineField | None:
+    def get_field(self, xlsx_field: str) -> Field | None:
         """
-        Возвращает функцию установки значения поля xlsx_field в аргумент класса.
+        Возвращает поле, соответствующую строке xlsx_field.
 
         :param xlsx_field: имя xlsx поля.
-        :return: функция установки, колличество строк которое занимают значения (если None, тогда значения идут до
-                 следующего ряда с установленным полем A), колличество стольбцов для одного значения.
+        :return: хранилище значения.
         """
         raise NotImplementedError
 
-    def get_unset_fields(self) -> tuple[tuple[str, LineField]]:
+    def get_unset_fields(self) -> tuple[tuple[str, Field]]:
         """
         Возвращает не установленные поля данных.
 
         :return: название поля, поле
         """
+        raise NotImplementedError
+
+    def get(self, tag: DocxEnumTag) -> Field | None:
+        """ Возвращает поле, соответствующую тэгу tag. """
         raise NotImplementedError
 
     def __iter__(self):
@@ -83,17 +89,34 @@ class XlsxData:
 
 class UsurtBaseTable:
 
-    def __init__(self, doc: HintDocument, rows: int = 1, cols: int = 4,
+    def __init__(self, p: Paragraph, rows: int = 1, cols: int = 4, *, width: Length,
                  columns_width: tuple[Inches, ...] = None):
-        self.doc = doc
-        self.table = self.doc.add_table(rows, cols, style='Table Grid')
+        """ Создаёт таблицу внутри """
+        self.table = self._make_table(rows, cols, width, p)
+        self.table.style = 'Table Grid'
         self.table.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
         self.last_row = self.table.rows[0]
         self.rows = rows - 1
+        self.cols = cols
         if columns_width:
             for i, w in enumerate(columns_width):
                 for c in self.table.columns[i].cells:
                     c.width = w
+
+    @staticmethod
+    def _make_table(rows: int, cols: int, width: Length, p: Paragraph):
+        tbl = CT_Tbl.new_tbl(rows, cols, width)
+        return Table(tbl, p)
+
+    def make_base_headings(self):
+        self.add_row('Фамилия Имя Отчество обучающегося', 'Группа,форма обучения (ц, б, к)',
+                  'Руководитель практики от УрГУПС')
+        self.merge((0,), cells=(2, 3))
+        self.add_row('', '', 'Должность', 'Ф.И.О.')
+        self.merge((0, 1), cells=(0, 1))
+
+    def apply(self):
+        self.table._parent._p.addnext(self.table._tbl)
 
     def add_row(self, *parts: str, p_style: str = None, char_style: str = None) -> int:
         """
