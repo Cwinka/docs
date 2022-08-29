@@ -1,11 +1,54 @@
 from pathlib import Path
 from typing import Type, Iterator
-from interfaces import Field, XlsxData
+
+from docparser import DocxEnumTag
+from interfaces import Field, XlsxData, LineField, MultiField
 import openpyxl
 
 
 class XlsxDataParserError(Exception):
     pass
+
+
+class UsurtData(XlsxData):
+    """
+    Данные xlsx документа, которые можно ввести.
+    """
+    def __init__(self):
+        self.columns: dict[str, Field] = {
+            "Вид практики": LineField(1, DocxEnumTag.KIND),
+            "Тип практики": LineField(1, DocxEnumTag.AIM),
+            "Курс": LineField(1, DocxEnumTag.GRADE),
+            "Факультет": LineField(1, DocxEnumTag.FACULTY),
+            "Группа": LineField(1, DocxEnumTag.GROUP),
+            "Форма обучения": LineField(1, DocxEnumTag.STUDY_TYPE),
+            "Специализация": LineField(1, DocxEnumTag.SPECIALIZATION),
+            "Период практики (годы)": LineField(1, DocxEnumTag.PERIOD_YEARS),
+            "Период практики (дни)": LineField(1, DocxEnumTag.PERIOD_DATE),
+            "Кафедра": LineField(1, DocxEnumTag.PULPIT),
+            "Должность руководителя практики": LineField(1, DocxEnumTag.DIRECTOR),
+            "ФИО руководителя практики": LineField(1, DocxEnumTag.DIRECTOR_NAME),
+            "Группа организаций. Имя организации. ФИО студентов, форма обучения":
+                MultiField(2, DocxEnumTag.TABLES),
+        }
+
+    def __iter__(self):
+        return iter(self.columns.values())
+
+    def help_iter(self) -> Iterator[tuple[str, Field]]:
+        return iter(self.columns.items())
+
+    def get_field(self, xlsx_field: str) -> Field | None:
+        return self.columns.get(xlsx_field)
+
+    def get(self, tag: DocxEnumTag) -> Field | None:
+        for f in self.columns.values():
+            if f.owner == tag:
+                return f
+
+    def get_unset_fields(self) -> tuple[tuple[str, Field]]:
+        """ Возвращает кортэж из каноничного имени поля и самого поля. """
+        return tuple((s, field) for s, field in self.columns.items() if field.value is None)
 
 
 class XlsxDataParser:

@@ -5,52 +5,14 @@ from pathlib import Path
 from docx.shared import Inches
 from docx.text.paragraph import Paragraph
 from loguru import logger
-from typing import Iterator
+
 from docparser import TaggedDoc, DocxEnumTag, UnknownDueDate, TaggedDocError
-from interfaces import XlsxData, LineField, UnsetFieldError, MultiField, Field
+from interfaces import XlsxData, UnsetFieldError
 from table import DocxTable
-from xlsxparser import XlsxDataParser, XlsxDataParserError
+from xlsxparser import XlsxDataParser, XlsxDataParserError, UsurtData
 
 
-class UsurtData(XlsxData):
-    """
-    Данные xlsx документа, которые можно ввести.
-    """
-    def __init__(self):
-        self.columns: dict[str, Field] = {
-            "Вид практики": LineField(1, DocxEnumTag.KIND),
-            "Тип практики": LineField(1, DocxEnumTag.AIM),
-            "Курс": LineField(1, DocxEnumTag.GRADE),
-            "Факультет": LineField(1, DocxEnumTag.FACULTY),
-            "Группа": LineField(1, DocxEnumTag.GROUP),
-            "Форма обучения": LineField(1, DocxEnumTag.STUDY_TYPE),
-            "Специализация": LineField(1, DocxEnumTag.SPECIALIZATION),
-            "Период практики (годы)": LineField(1, DocxEnumTag.PERIOD_YEARS),
-            "Период практики (дни)": LineField(1, DocxEnumTag.PERIOD_DATE),
-            "Кафедра": LineField(1, DocxEnumTag.PULPIT),
-            "Должность руководителя практики": LineField(1, DocxEnumTag.DIRECTOR),
-            "ФИО руководителя практики": LineField(1, DocxEnumTag.DIRECTOR_NAME),
-            "Группа организаций. Имя организации. ФИО студентов, форма обучения":
-                MultiField(2, DocxEnumTag.TABLES),
-        }
-
-    def __iter__(self):
-        return iter(self.columns.values())
-
-    def help_iter(self) -> Iterator[tuple[str, Field]]:
-        return iter(self.columns.items())
-
-    def get_field(self, xlsx_field: str) -> Field | None:
-        return self.columns.get(xlsx_field)
-
-    def get(self, tag: DocxEnumTag) -> Field | None:
-        for f in self.columns.values():
-            if f.owner == tag:
-                return f
-
-    def get_unset_fields(self) -> tuple[tuple[str, Field]]:
-        """ Возвращает кортэж из каноничного имени поля и самого поля. """
-        return tuple((s, field) for s, field in self.columns.items() if field.value is None)
+VERSION = 1.0
 
 
 def check_filled(data: XlsxData, doc: TaggedDoc):
@@ -121,30 +83,40 @@ def fill_tables(doc: TaggedDoc, tag: DocxEnumTag, xl_data: XlsxData):
         table.apply()
 
 
-class ListTagsAction(argparse.Action):
-
+class NoArgsAction(argparse.Action):
     def __init__(self, option_strings, dest, nargs=None, **kwargs):
         super().__init__(option_strings, dest, nargs=0, **kwargs)
 
+
+class ListTagsAction(NoArgsAction):
     def __call__(self, parser, namespace, values, option_string=None):
         for canon, field in UsurtData().help_iter():
             print(f'Xlsx поле: "{canon}", тэг docx: "<{field.owner.value}>"')
         exit(0)
 
 
+class ShowVersionAction(NoArgsAction):
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        print(VERSION)
+        exit(0)
+
+
 def main():
     logger.remove()
     logger.add(sys.stdout, colorize=True, format="<level>{level}</level> | <level>{message}</level>")
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description='Программа для заполнения шаблона docx документа с тэгами, согласно '
+                                                 'данным из xlsx документа.')
     parser.add_argument('docx', type=str, help='путь до шаблона docx документа.')
     parser.add_argument('xlsx', type=str, help='путь до xlsx документа с данными.')
-    parser.add_argument('-o', '-out', type=str, help='путь до нового docx документа.')
-    parser.add_argument('-lt', '-list-tags', action=ListTagsAction, help='отобразить список доступных тэгов.')
+    parser.add_argument('-o', '--out', type=str, help='путь до нового docx документа.')
+    parser.add_argument('-lt', '--list-tags', action=ListTagsAction, help='отобразить список доступных тэгов.')
+    parser.add_argument('-v', '--version', action=ShowVersionAction, help='отобразить версию программы.')
 
     args = parser.parse_args()
     xlsx_path = Path(args.xlsx)
     docx_path = Path(args.docx)
-    out = Path(args.o) if args.o else Path(f'{docx_path.stem}-prepared.docx')
+    out = Path(args.out) if args.out else Path(f'{docx_path.stem}-prepared.docx')
 
     try:
         xl_data = XlsxDataParser(xlsx_path).parse(UsurtData)
