@@ -121,21 +121,27 @@ def fill_tables(doc: TaggedDoc, tag: DocxEnumTag, xl_data: XlsxData):
         table.apply()
 
 
+class ListTagsAction(argparse.Action):
+
+    def __init__(self, option_strings, dest, nargs=None, **kwargs):
+        super().__init__(option_strings, dest, nargs=0, **kwargs)
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        for canon, field in UsurtData().help_iter():
+            print(f'Xlsx поле: "{canon}", тэг docx: "<{field.owner.value}>"')
+        exit(0)
+
+
 def main():
     logger.remove()
     logger.add(sys.stdout, colorize=True, format="<level>{level}</level> | <level>{message}</level>")
     parser = argparse.ArgumentParser()
     parser.add_argument('docx', type=str, help='путь до шаблона docx документа.')
     parser.add_argument('xlsx', type=str, help='путь до xlsx документа с данными.')
-    parser.add_argument('-o', '-out', type=str, help='путь до нового doc документа.')
-    parser.add_argument('-lt', '-list-tags', action='store_true', help='отобразить список доступных тэгов.')
+    parser.add_argument('-o', '-out', type=str, help='путь до нового docx документа.')
+    parser.add_argument('-lt', '-list-tags', action=ListTagsAction, help='отобразить список доступных тэгов.')
 
     args = parser.parse_args()
-    if args.lt:
-        for canon, field in UsurtData().help_iter():
-            print(f'Xlsx поле: "{canon}", тэг docx: "<{field.owner.value}>"')
-        exit(0)
-
     xlsx_path = Path(args.xlsx)
     docx_path = Path(args.docx)
     out = Path(args.o) if args.o else Path(f'{docx_path.stem}-prepared.docx')
