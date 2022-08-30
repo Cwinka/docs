@@ -46,8 +46,10 @@ def fill_tables(doc: TaggedDoc, tag: DocxEnumTag, xl_data: XlsxData):
         nonlocal n_students
         table.add_row(f'{n_students}. {_name}', f'{group}, {_budget}', director, director_name)
         n_students += 1
-
-    table_paragraph = doc._hit_paragraphs[tag].pop()  # параграф, в котором найден тэг таблицы.
+    try:
+        table_paragraph = doc._hit_paragraphs[tag].pop()  # параграф, в котором найден тэг таблицы.
+    except KeyError:  # тэг таблиц не использовался в документе
+        return
     paragraph = _new_p(table_paragraph)  # вставка нового неформатированного параграфа.
     table_paragraph._element.getparent().remove(table_paragraph._p)  # удаление параграфа с тэгом.
 

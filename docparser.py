@@ -2,7 +2,7 @@ import re
 from collections import defaultdict
 from enum import Enum
 from pathlib import Path
-
+from loguru import logger
 from docx import Document
 from docx.document import Document as HintDocument
 from docx.shared import Length
@@ -96,9 +96,13 @@ class TaggedDoc:
         for p in self._d.paragraphs:
             if found := re.finditer(search_pattern, p.text):
                 for tag in found:
-                    t = _DocxTag.from_re(tag)  # Создание экземпляра сложного тэга из строки.
-                    self._hit_paragraphs[t.enum].add(p)  # Сопоставление enum и параграфа где найден тэг.
-                    self._found_tags[t.enum].append(t)  # Сопоставление enum и со сложным тэгом.
+                    try:
+                        t = _DocxTag.from_re(tag)  # Создание экземпляра сложного тэга из строки.
+                    except ValueError:
+                        logger.warning(f'Найден несуществующий тэг "{tag.group(0)}" в параграфе "{p.text}".')
+                    else:
+                        self._hit_paragraphs[t.enum].add(p)  # Сопоставление enum и параграфа где найден тэг.
+                        self._found_tags[t.enum].append(t)  # Сопоставление enum и со сложным тэгом.
 
     def save(self, path: Path):
         self._d.save(path)
