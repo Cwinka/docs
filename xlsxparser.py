@@ -10,7 +10,7 @@ class XlsxDataParserError(Exception):
     pass
 
 
-class UsurtData(XlsxData):
+class TagData(XlsxData):
     """
     Данные xlsx документа, которые можно ввести.
     """
@@ -24,7 +24,7 @@ class UsurtData(XlsxData):
             "Форма обучения": LineField(1, DocxEnumTag.STUDY_TYPE),
             "Специализация": LineField(1, DocxEnumTag.SPECIALIZATION),
             "Период практики (годы)": LineField(1, DocxEnumTag.PERIOD_YEARS),
-            "Период практики (дни)": LineField(1, DocxEnumTag.PERIOD_DATE),
+            "Период практики (дни)": LineField(1, DocxEnumTag.PERIOD_DAYS),
             "Кафедра": LineField(1, DocxEnumTag.PULPIT),
             "Должность руководителя практики": LineField(1, DocxEnumTag.DIRECTOR),
             "ФИО руководителя практики": LineField(1, DocxEnumTag.DIRECTOR_NAME),

@@ -9,7 +9,7 @@ from loguru import logger
 from docparser import TaggedDoc, DocxEnumTag, UnknownDueDate, TaggedDocError
 from interfaces import XlsxData, UnsetFieldError
 from table import DocxTable
-from xlsxparser import XlsxDataParser, XlsxDataParserError, UsurtData
+from xlsxparser import XlsxDataParser, XlsxDataParserError, TagData
 
 
 VERSION = 1.0
@@ -92,7 +92,7 @@ class NoArgsAction(argparse.Action):
 
 class ListTagsAction(NoArgsAction):
     def __call__(self, parser, namespace, values, option_string=None):
-        for canon, field in UsurtData().help_iter():
+        for canon, field in TagData().help_iter():
             print(f'Xlsx поле: "{canon}", тэг docx: "<{field.owner.value}>"')
         exit(0)
 
@@ -121,7 +121,7 @@ def main():
     out = Path(args.out) if args.out else Path(f'{docx_path.stem}-prepared.docx')
 
     try:
-        xl_data = XlsxDataParser(xlsx_path).parse(UsurtData)
+        xl_data = XlsxDataParser(xlsx_path).parse(TagData)
         doc = TaggedDoc(docx_path, init=True)
         check_filled(xl_data, doc)
     except (XlsxDataParserError, TaggedDocError, UnsetFieldError) as e:
