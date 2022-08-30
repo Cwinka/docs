@@ -23,7 +23,7 @@ class DocxEnumTag(Enum):
     STUDY_TYPE = 'STUDY_TYPE'
     SPECIALIZATION = 'SPECIALIZATION'
     PERIOD_YEARS = 'PERIOD_YEARS'
-    PERIOD_DATE = 'PERIOD_DAYS'
+    PERIOD_DAYS = 'PERIOD_DAYS'
     PULPIT = 'PULPIT'
     DIRECTOR = 'DIRECTOR'
     DIRECTOR_NAME = 'DIRECTOR_NAME'
@@ -89,9 +89,14 @@ class TaggedDoc:
         #  Маппинг найденных enum тегов на список параграфов, в которых встречаются найденные тэги.
         self._hit_paragraphs: dict[DocxEnumTag: set[Paragraph]] = defaultdict(set)
         if init:
-            self._parse()
+            self.parse()
 
-    def _parse(self):
+    def parse(self):
+        """
+        Анализирует документ на наличие тэгов.
+        :return:
+        """
+        self._clear()
         search_pattern = _DocxTag.global_re()  # Регулярное выражения для поиска тэгов.
         for p in self._d.paragraphs:
             if found := re.finditer(search_pattern, p.text):
@@ -103,6 +108,10 @@ class TaggedDoc:
                     else:
                         self._hit_paragraphs[t.enum].add(p)  # Сопоставление enum и параграфа где найден тэг.
                         self._found_tags[t.enum].append(t)  # Сопоставление enum и со сложным тэгом.
+
+    def _clear(self):
+        self._found_tags.clear()
+        self._hit_paragraphs.clear()
 
     def save(self, path: Path):
         self._d.save(path)
