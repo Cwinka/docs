@@ -32,7 +32,7 @@ class TagData(XlsxData):
                 MultiField(2, DocxEnumTag.TABLES),
         }
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Field]:
         return iter(filter(lambda x: x.value is not None, self.columns.values()))
 
     def help_iter(self) -> Iterator[tuple[str, Field]]:

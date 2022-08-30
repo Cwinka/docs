@@ -84,5 +84,5 @@ class XlsxData:
         """ Итератор, возвращающий кононичное название поля и само поле"""
         raise NotImplementedError
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Field]:
         raise NotImplementedError
