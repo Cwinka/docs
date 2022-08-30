@@ -32,7 +32,7 @@ class LineField(Field):
         self.value = value
 
 
-class MultiField:
+class MultiField(Field):
     """
     Многострочное поле, множественные вызовы дописывают значение.
     """
