@@ -33,7 +33,7 @@ class TagData(XlsxData):
         }
 
     def __iter__(self):
-        return iter(self.columns.values())
+        return iter(filter(lambda x: x.value is not None, self.columns.values()))
 
     def help_iter(self) -> Iterator[tuple[str, Field]]:
         return iter(self.columns.items())
