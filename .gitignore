@@ -2,5 +2,6 @@
 venv/
 *.7z
 *.tmp
+.pytest_cache/
 ~*
 __pycache__/
