@@ -1,5 +1,46 @@
-from docparser import DocxEnumTag
-from typing import Iterator
+from enum import Enum
+from typing import Iterator, Type, Iterable
+from pathlib import Path
+
+
+def raise_invalid_path(path: Path, throw: Type[Exception], *, exts: Iterable[str] = None):
+    """
+    Проверяет существует ли путь и является ли путь валидным, иначе поднимает
+    исключение throw.
+
+    :param path: путь до документа.
+    :param throw: тип исключения.
+    :param exts: разрешенные расширения (указываются с точкой).
+    :return:
+    """
+    if not path.exists():
+        raise throw(f'Путь "{path}" не существует.')
+    if path.name in ('', '.', '..'):
+        raise throw(f'Некорректный путь: {path}.')
+    if exts is not None:
+        if path.suffix not in exts:
+            raise throw(f'Недопустимое расширение документа "{path}". Необходим документ в '
+                        f'одном из форматов: [{", ".join(exts)}]')
+
+
+class DocxEnumTag(Enum):
+    """
+    Список доступных тэгов для использования в шаблоне docx
+    """
+    KIND = 'KIND'
+    AIM = 'AIM'
+    GRADE = 'GRADE'
+    FACULTY = 'FACULTY'
+    GROUP = 'GROUP'
+    STUDY_TYPE = 'STUDY_TYPE'
+    SPECIALIZATION = 'SPECIALIZATION'
+    PERIOD_YEARS = 'PERIOD_YEARS'
+    PERIOD_DAYS = 'PERIOD_DAYS'
+    PULPIT = 'PULPIT'
+    DIRECTOR = 'DIRECTOR'
+    DIRECTOR_NAME = 'DIRECTOR_NAME'
+    STUDENTS = 'STUDENTS'
+    TABLES = 'TABLES'
 
 
 class Field:

@@ -6,8 +6,8 @@ from docx.shared import Inches
 from docx.text.paragraph import Paragraph
 from loguru import logger
 
-from docparser import TaggedDoc, DocxEnumTag, UnknownDueDate, TaggedDocError
-from interfaces import XlsxData, UnsetFieldError
+from docparser import TaggedDoc, UnknownDueDate, TaggedDocError
+from interfaces import XlsxData, UnsetFieldError, DocxEnumTag
 from table import DocxTable
 from xlsxparser import XlsxDataParser, XlsxDataParserError, TagData
 

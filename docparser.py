@@ -1,34 +1,13 @@
 import re
 from collections import defaultdict
-from enum import Enum
 from pathlib import Path
 from loguru import logger
 from docx import Document
 from docx.document import Document as HintDocument
 from docx.shared import Length
 from docx.text.paragraph import Paragraph
-
+from interfaces import raise_invalid_path, DocxEnumTag
 from morfeus import morf
-
-
-class DocxEnumTag(Enum):
-    """
-    Список доступных тэгов для использования в шаблоне docx
-    """
-    KIND = 'KIND'
-    AIM = 'AIM'
-    GRADE = 'GRADE'
-    FACULTY = 'FACULTY'
-    GROUP = 'GROUP'
-    STUDY_TYPE = 'STUDY_TYPE'
-    SPECIALIZATION = 'SPECIALIZATION'
-    PERIOD_YEARS = 'PERIOD_YEARS'
-    PERIOD_DAYS = 'PERIOD_DAYS'
-    PULPIT = 'PULPIT'
-    DIRECTOR = 'DIRECTOR'
-    DIRECTOR_NAME = 'DIRECTOR_NAME'
-    STUDENTS = 'STUDENTS'
-    TABLES = 'TABLES'
 
 
 class _DocxTag:
@@ -75,6 +54,7 @@ class TaggedDocError(Exception):
 
 class TaggedDoc:
     def __init__(self, path: Path, init: bool = False):
+        raise_invalid_path(path, TaggedDocError, exts=('.docx',))
         self._path = path  # Путь до шаблона docx.
         try:
             self._d: HintDocument = Document(path)  # Объект библиотеки python-docx.

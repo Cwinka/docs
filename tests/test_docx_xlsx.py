@@ -1,20 +1,10 @@
 import pytest
 
-from pathlib import Path
-import os
-from docparser import TaggedDoc, DocxEnumTag, UnknownDueDate
+from docparser import TaggedDoc, UnknownDueDate
+from interfaces import DocxEnumTag
 from xlsxparser import XlsxDataParser, TagData
-from tests.test_docx import DOCX_RESOURCE, DOCX_RESOURCE_BAD, flat_docx
+from tests.test_docx import DOCX_RESOURCE, DOCX_RESOURCE_BAD, flat_docx, save_path
 from tests.test_xlsx import XLSX_RESOURCE, XLSX_RESOURCE_BAD
-
-
-@pytest.fixture()
-def save_path(request):
-    def teardown():
-        os.remove(path.as_posix())
-    path = Path('.test_tmp_file')
-    request.addfinalizer(teardown)
-    return path
 
 
 def test_replace(save_path):

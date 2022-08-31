@@ -1,8 +1,7 @@
 from pathlib import Path
 from typing import Type, Iterator
 
-from docparser import DocxEnumTag
-from interfaces import Field, XlsxData, LineField, MultiField
+from interfaces import Field, XlsxData, LineField, MultiField, raise_invalid_path, DocxEnumTag
 import openpyxl
 
 
@@ -57,12 +56,11 @@ class XlsxDataParser:
     """
 
     def __init__(self, path: Path):
-        if path.suffix not in ('.xlsx', 'xls'):
-            raise XlsxDataParserError(f'Неподходящий формат документа {path}. Необходим документ в формате xls/xlsx.')
+        raise_invalid_path(path, XlsxDataParserError, exts=('.xlsx', '.xls'))
         try:
             wb_obj = openpyxl.load_workbook(path)
         except OSError:
-            raise XlsxDataParserError(f'Документ {path} не является xls/xlsx документом.')
+            raise XlsxDataParserError(f'Документ "{path}" не является xls/xlsx документом.')
         self.sheet = wb_obj.active
 
     def parse(self, keeper: Type[XlsxData]) -> XlsxData:

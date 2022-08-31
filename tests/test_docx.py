@@ -2,7 +2,8 @@ import os
 
 import pytest
 from pathlib import Path
-from docparser import TaggedDoc, TaggedDocError, DocxEnumTag, UnknownDueDate
+from docparser import TaggedDoc, TaggedDocError, UnknownDueDate
+from interfaces import DocxEnumTag
 import docx
 from functools import reduce
 
@@ -15,7 +16,7 @@ DOCX_RESOURCE_CORRUPT = Path('tests/samples/s3.docx')
 def save_path(request):
     def teardown():
         os.remove(path.as_posix())
-    path = Path('.test_tmp_file')
+    path = Path('.test_tmp_file.docx')
     request.addfinalizer(teardown)
     return path
 

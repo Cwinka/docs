@@ -1,7 +1,7 @@
 import pytest
 from pathlib import Path
 from xlsxparser import XlsxDataParser, TagData, XlsxData, Field, XlsxDataParserError
-from docparser import DocxEnumTag
+from interfaces import DocxEnumTag
 
 XLSX_RESOURCE = Path('tests/samples/s1.xlsx')
 XLSX_RESOURCE_BAD = Path('tests/samples/s2.xlsx')
