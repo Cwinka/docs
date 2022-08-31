@@ -12,7 +12,7 @@ from table import DocxTable
 from xlsxparser import XlsxDataParser, XlsxDataParserError, TagData
 
 
-VERSION = 1.0
+VERSION = 1.1
 
 
 def check_filled(data: XlsxData, doc: TaggedDoc):

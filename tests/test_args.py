@@ -5,7 +5,7 @@ from docparser import TaggedDoc
 from tests.test_docx import DOCX_RESOURCE
 from tests.test_xlsx import XLSX_RESOURCE
 
-MAIN = Path('filler.py')
+MAIN = Path('main.py')
 PYTHON = Path('venv/Scripts/python.exe')
 
 
